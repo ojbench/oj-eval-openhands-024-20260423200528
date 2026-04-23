@@ -223,9 +223,10 @@ private:
     size_t blocks_cap;
 
     void expand_blocks() {
-        size_t new_cap = blocks_cap * 2 + 1;
+        size_t new_cap = blocks_cap * 3;
         T** new_blocks = (T**)operator new(new_cap * sizeof(T*));
-        size_t offset = (new_cap - (tail_block - head_block + 1)) / 2;
+        for (size_t i = 0; i < new_cap; ++i) new_blocks[i] = nullptr;
+        size_t offset = blocks_cap;
         for (size_t i = head_block; i <= tail_block; ++i) {
             new_blocks[offset + i - head_block] = blocks[i];
         }
@@ -263,7 +264,9 @@ public:
         }
     }
     ~deque() {
-        clear();
+        for (size_t i = 0; i < total_size; ++i) {
+            (*this)[i].~T();
+        }
         for (size_t i = 0; i < blocks_cap; ++i) {
             if (blocks[i]) operator delete(blocks[i]);
         }
@@ -271,7 +274,9 @@ public:
     }
     deque &operator=(const deque &other) {
         if (this == &other) return *this;
-        clear();
+        for (size_t i = 0; i < total_size; ++i) {
+            (*this)[i].~T();
+        }
         for (size_t i = 0; i < blocks_cap; ++i) {
             if (blocks[i]) operator delete(blocks[i]);
         }
@@ -364,6 +369,7 @@ public:
             (*this)[i].~T();
         }
         total_size = 0;
+        // Keep the current blocks but reset indices
         head_block = tail_block = blocks_cap / 2;
         head_idx = tail_idx = BLOCK_SIZE / 2;
     }
@@ -430,6 +436,7 @@ public:
         tail_idx--;
         blocks[tail_block][tail_idx].~T();
         total_size--;
+        // Optional: free block if it's empty and not the only block
     }
     void push_front(const T &value) {
         if (head_idx == 0) {
